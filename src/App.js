@@ -26,29 +26,32 @@ const rDataList = {
 class PqGridTree extends React.Component {
   gridRefTree = React.createRef();
 
-  componentDidCatch(error, errorInfo) {
-    console.log(error);
-  }
-
-  componentWillUnmount() {
-    this.grid.destroy();
-  }
-
   componentDidMount() {
     this.options = this.props.option;
     this.grid = pq.grid(this.gridRefTree.current, this.options);
   }
-
   componentDidUpdate(prevProps) {
     Object.assign(this.options, this.props.option);
   }
 
+  componentDidCatch(error, errorInfo) {
+    console.log(error);
+  }
+  componentWillUnmount() {
+    this.grid.destroy();
+  }
+
   render() {
-    return <div ref={this.gridRefTree}></div>;
+    return (
+      <React.StrictMode>
+        <div ref={this.gridRefTree}></div>
+      </React.StrictMode>
+    );
   }
 
   setData(dataModelOpt) {
     var new_data = $.extend(true, [], dataModelOpt.data);
+    //either use this.
     dataModelOpt.data = new_data;
     this.grid.option('dataModel', dataModelOpt);
     this.grid.refreshDataAndView();
@@ -57,7 +60,6 @@ class PqGridTree extends React.Component {
   getChanges() {
     return this.grid.getChanges();
   }
-
   getDatas() {
     return this.grid.option('dataModel.data');
   }
@@ -70,15 +72,20 @@ class PqGrid extends React.Component {
     this.options = this.props.option;
     this.grid = pq.grid(this.gridRef.current, this.options);
   }
-  componentDidUpdate(prevPros) {
+  componentDidUpdate(prevProps) {
     Object.assign(this.options, this.props.option);
   }
+
   componentDidCatch(error, errorInfo) {
     console.log(error);
   }
 
   render() {
-    return <div ref={this.gridRef}></div>;
+    return (
+      <React.StrictMode>
+        <div ref={this.gridRef}></div>
+      </React.StrictMode>
+    );
   }
 }
 
@@ -124,10 +131,11 @@ class App extends React.Component {
       reactive: true,
       locale: 'en',
       animModel: { on: true },
-      collapsible: { on: false, toggled: false },
+      collapsible: { on: false, toggle: false },
       scrollModel: { autoFit: true },
-      hoverMode: 'row',
       numberCell: { show: true, width: 45 },
+      hoverMode: 'row',
+      selectionModel: { type: 'row', mode: 'single' },
       editable: false,
 
       rowHt: 24,
@@ -137,14 +145,31 @@ class App extends React.Component {
       colModel: this.lGridCol,
       dataModel: { data: [] },
 
-      dragModel: { on: true, diHelper: 'name' },
+      dragModel: {
+        on: true,
+        diHelper: ['name'],
+      },
       dropModel: {
         on: true,
         drop: function (evt, uiDrop) {
           var rowIndx = uiDrop.rowIndx + (uiDrop.ratioY() > 0.5 ? 1 : 0);
           var nodes = uiDrop.helper.data('Drag').cellObj.nodes;
+          nodes.forEach((row) => {
+            row.parentId = '';
+            row.level = 1;
+            delete row.pq_cellcls;
+            delete row.pq_hidden;
+            delete row.pq_hideOld;
+            delete row.pq_ht;
+            delete row.pq_level;
+            delete row.pq_ri;
+            delete row.pq_rowcls;
+            delete row.pq_rowselect;
+            delete row.pq_top;
+            delete row.pq_tree_cb;
+            delete row.unitLevel;
+          });
 
-          nodes.foreach((row) => {});
           this.addNodes(nodes, isNaN(rowIndx) ? null : rowIndx);
         },
       },
@@ -154,11 +179,11 @@ class App extends React.Component {
       showTitle: false,
       locale: 'en',
       animModel: { on: true },
-      collapsible: { on: false, toggled: false },
+      collapsible: { toggle: false, on: false },
       scrollModel: { autoFit: true },
-      hoverMode: 'row',
 
       numberCell: { show: true, width: 45 },
+      hoverMode: 'row',
       editable: false,
       trackModel: { on: true },
 
@@ -166,23 +191,27 @@ class App extends React.Component {
       height: '400',
       columnTemplate: { width: 100 },
 
-      colModel: this.rGridCol,
-      dataModel: { data: [] },
-
       treeModel: {
         checkbox: true,
         select: true,
+
         dataIndx: 'name',
         cascade: true,
         format: 'nested',
 
         id: 'id',
         parentId: 'parentId',
+        historyMove: true,
+        historyAdd: true, //7.4
+        historyDelete: true, //7.4
+        leafIfEmpty: true, //7.4
       },
+      colModel: this.rGridCol,
+      dataModel: { data: [] },
 
       dragModel: {
         on: true,
-        diHelper: 'name',
+        diHelper: ['name'],
         dragNodes: function (rd, evt) {
           var checkNodes = this.Tree().getCheckedNodes();
           return checkNodes.length && checkNodes.indexOf(rd) > -1
@@ -190,10 +219,14 @@ class App extends React.Component {
             : [rd];
         },
       },
-      dropModel: { on: true },
+      dropModel: {
+        on: true,
+        divider: 200,
+      },
       moveNode: function (evt, ui) {
         let grid = this,
           Tree = grid.Tree();
+
         ui.args[0].forEach(function (rd) {
           Tree.eachChild(rd, function (node) {
             let pnode = Tree.getParent(node);
@@ -202,7 +235,7 @@ class App extends React.Component {
             node.parentId = pnode.id;
             grid.refreshCell({
               rowIndx: node.pq_ri,
-              dataIndex: 'level',
+              dataIndx: 'level',
             });
           });
         });
